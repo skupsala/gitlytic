@@ -1,6 +1,6 @@
 data/
+gitlytic/notebooks/.ipynb_checkpoints
 venv/
 .idea/
-
 __pycache__/
 *.py[cod]
