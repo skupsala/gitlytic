@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 
-from project_utils import get_project_output_dir, get_project_path
+from project import get_project_output_dir, get_project_path
 from analyser import analyse
 
 if __name__ == '__main__':
@@ -19,5 +19,4 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    print('Analyzing {}'.format(args.project))
     analyse(project_path)

@@ -1,8 +1,10 @@
 import os
 import subprocess
 import settings
-from utils import cd
-from project_utils import get_project_output_dir
+from utils import cd, default_logger as logger
+from project import get_project_output_dir, get_project_name
+from repo import find_git_repo_paths, get_repo_name
+
 
 GIT_LOG_FORMAT_OPTIONS = {
     'commit_hash': '%H',
@@ -27,21 +29,18 @@ GIT_LOG_TSV_FIELDS = ['commit_hash',
 
 GIT_LOG_TSV_HEADER = '{sep}'.join(GIT_LOG_TSV_FIELDS).format(sep=settings.FIELD_SEPARATOR)
 GIT_LOG_TSV_FORMAT = '{sep}'.join([GIT_LOG_FORMAT_OPTIONS[field] for field in GIT_LOG_TSV_FIELDS]).format(
-    sep=settings.FIELD_SEPARATOR)
-
-
-def find_git_repo_paths(project_path):
-    # Now assumes that no nested git repos (all in same level)
-    return [os.path.join(project_path, directory) for directory in os.listdir(project_path) if
-            os.path.exists(os.path.join(project_path, directory, '.git'))]
+        sep=settings.FIELD_SEPARATOR)
 
 
 def git_log_tsv(project_path):
+    logger.info('Producing git_log.tsv files for project {}'.format(get_project_name(project_path)))
     git_repo_paths = find_git_repo_paths(project_path)
     for git_repo_path in git_repo_paths:
         with cd(git_repo_path):
-            git_repo_name = os.path.split(git_repo_path)[1]
-            output_file_path = os.path.join(get_project_output_dir(project_path), 'git_log_{}.tsv'.format(git_repo_name))
+            git_repo_name = get_repo_name(git_repo_path)
+            logger.info('Producing git_log.tsv for {}'.format(git_repo_name))
+            output_file_path = os.path.join(get_project_output_dir(project_path),
+                                            'git_log_{}.tsv'.format(git_repo_name))
             with open(output_file_path, 'w') as output_file:
                 output_file.write(GIT_LOG_TSV_HEADER + '\n')
             subprocess.check_call(

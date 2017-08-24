@@ -1,5 +1,9 @@
 import os
+import logging
 
+default_logger = logging.getLogger()
+default_logger.setLevel(logging.INFO)
+default_logger.addHandler(logging.StreamHandler())
 
 class cd:
     """Context manager for changing the current working directory"""
