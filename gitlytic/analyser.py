@@ -5,19 +5,19 @@ from utils import cd, default_logger as logger
 from project import get_project_output_dir, get_project_name
 from repo import find_git_repo_paths, get_repo_name
 
-
 GIT_LOG_FORMAT_OPTIONS = {
     'commit_hash': '%H',
     'author_name': '%an',
     'author_email': '%ae',
-    'author_date': '%aI',
+    'author_date': '%ad',
     'committer_name': '%cn',
     'committer_email': '%ce',
-    'committer_date': '%cI',
+    'committer_date': '%cd',
     'subject': '%s',
     'body': '%b',
 }
 
+# TODO add timezone offset separately
 GIT_LOG_TSV_FIELDS = ['commit_hash',
                       'author_name',
                       'author_email',
@@ -26,6 +26,8 @@ GIT_LOG_TSV_FIELDS = ['commit_hash',
                       'committer_email',
                       'committer_date',
                       'subject']
+
+GIT_LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 GIT_LOG_TSV_HEADER = '{sep}'.join(GIT_LOG_TSV_FIELDS).format(sep=settings.FIELD_SEPARATOR)
 GIT_LOG_TSV_FORMAT = '{sep}'.join([GIT_LOG_FORMAT_OPTIONS[field] for field in GIT_LOG_TSV_FIELDS]).format(
@@ -43,9 +45,11 @@ def git_log_tsv(project_path):
                                             'git_log_{}.tsv'.format(git_repo_name))
             with open(output_file_path, 'w') as output_file:
                 output_file.write(GIT_LOG_TSV_HEADER + '\n')
-            subprocess.check_call(
-                    'git log --date=iso --pretty=format:"{}" >> {}'.format(GIT_LOG_TSV_FORMAT, output_file_path),
-                    shell=True)
+            git_log_cmd = 'git log --date=format:"{}" --pretty=format:"{}" >> {}'.format(GIT_LOG_DATE_FORMAT,
+                                                                                         GIT_LOG_TSV_FORMAT,
+                                                                                         output_file_path)
+            logger.debug(git_log_cmd)
+            subprocess.check_call(git_log_cmd, shell=True)
 
 
 def analyse(project_path):
