@@ -1,5 +1,6 @@
 import os
-import settings
+
+from gitlytic import settings
 
 
 def get_project_path(project_name):

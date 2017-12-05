@@ -1,6 +1,6 @@
 set -e
 
-source venv/bin/activate
+source gl/bin/activate
 pycharm . &
 cd gitlytic/notebooks
 jupyter notebook

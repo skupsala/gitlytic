@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 
-import settings
-from utils import default_logger as logger
-from project import get_project_output_dir
+from gitlytic import settings
+from gitlytic.utils import default_logger as logger
+from gitlytic.project import get_project_output_dir
 
 
 def load_project_commits(project_path):

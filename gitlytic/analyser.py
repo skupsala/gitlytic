@@ -1,9 +1,10 @@
 import os
 import subprocess
-import settings
-from utils import cd, default_logger as logger
-from project import get_project_output_dir, get_project_name
-from repo import find_git_repo_paths, get_repo_name
+
+from gitlytic import settings
+from gitlytic.utils import cd, default_logger as logger
+from gitlytic.project import get_project_output_dir, get_project_name
+from gitlytic.repo import find_git_repo_paths, get_repo_name
 
 GIT_LOG_FORMAT_OPTIONS = {
     'commit_hash': '%H',
@@ -17,7 +18,6 @@ GIT_LOG_FORMAT_OPTIONS = {
     'body': '%b',
 }
 
-# TODO add timezone offset separately
 GIT_LOG_TSV_FIELDS = ['commit_hash',
                       'author_name',
                       'author_email',
