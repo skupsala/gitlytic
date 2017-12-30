@@ -1,9 +1,10 @@
 import os
 import subprocess
+import git
 
 from gitlytic import settings
 from gitlytic.utils import cd, default_logger as logger
-from gitlytic.project import get_project_output_dir, get_project_name
+from gitlytic.project import get_project_output_dir, get_project_name, get_project_path
 from gitlytic.repo import find_git_repo_paths, get_repo_name
 
 GIT_LOG_FORMAT_OPTIONS = {
@@ -50,6 +51,30 @@ def git_log_tsv(project_path):
                                                                                          output_file_path)
             logger.debug(git_log_cmd)
             subprocess.check_call(git_log_cmd, shell=True)
+
+
+def git_commit_analysis(project_path):
+    logger.info('Analysing git commits for project {}'.format(get_project_name(project_path)))
+    git_repo_paths = find_git_repo_paths(project_path)
+    for git_repo_path in git_repo_paths:
+        git_repo_name = get_repo_name(git_repo_path)
+        logger.info('Analysing git commits for repo {}'.format(git_repo_name))
+        repo = git.Repo(git_repo_path)
+        for commit in repo.iter_commits('master', max_count=20):
+            is_merge = False
+            changed_files = 0
+            insertions = 0
+            deletions = 0
+            if len(commit.parents) > 1:
+                is_merge = True
+            else:
+                print('Commit {}'.format(commit.hexsha))
+                changed_files = len(commit.stats.files)
+                for changed_file, change in commit.stats.files.items():
+                    insertions += change['insertions']
+                    deletions += change['deletions']
+                print('Changed files {}, insesrtions {}, deletions {}'.format(changed_files, insertions, deletions))
+            yield (git_repo_name, commit.hexsha, is_merge, changed_files, insertions, deletions)
 
 
 def analyse(project_path):

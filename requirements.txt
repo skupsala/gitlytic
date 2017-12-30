@@ -2,6 +2,8 @@ bleach==2.0.0
 cycler==0.10.0
 decorator==4.1.2
 entrypoints==0.2.3
+gitdb2==2.0.3
+GitPython==2.1.8
 html5lib==0.999999999
 ipykernel==4.6.1
 ipython==6.1.0
@@ -37,6 +39,7 @@ scipy==0.19.1
 seaborn==0.8.1
 simplegeneric==0.8.1
 six==1.10.0
+smmap2==2.0.3
 terminado==0.6
 testpath==0.3.1
 tornado==4.5.1
