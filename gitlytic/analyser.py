@@ -3,6 +3,7 @@ import git
 import csv
 from datetime import datetime
 from dateutil import tz
+from gitlytic import settings
 
 from gitlytic.utils import default_logger as logger
 from gitlytic.project import get_project_output_dir, get_project_name, get_project_path
@@ -106,7 +107,8 @@ def write_git_commit_csv(project_path):
     if os.path.exists(output_file_path):
         should_write_header_row = False
     with open(output_file_path, 'a', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=GIT_LOG_TSV_FIELDS, delimiter=',', quotechar='"',
+        writer = csv.DictWriter(csvfile, fieldnames=GIT_LOG_TSV_FIELDS, delimiter=settings.DELIMITER,
+                                quotechar=settings.QUOTECHAR,
                                 quoting=csv.QUOTE_NONNUMERIC)
         if should_write_header_row:
             writer.writeheader()
@@ -116,7 +118,8 @@ def write_git_commit_csv(project_path):
     output_version_file_path = os.path.join(get_project_output_dir(project_path),
                                             'git_commits_version_{}.csv'.format(project_name))
     with open(output_version_file_path, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=['repo_name', 'commit_hash'], delimiter=',', quotechar='"',
+        writer = csv.DictWriter(csvfile, fieldnames=['repo_name', 'commit_hash'], delimiter=settings.DELIMITER,
+                                quotechar=settings.QUOTECHAR,
                                 quoting=csv.QUOTE_NONNUMERIC)
         writer.writeheader()
         for commit_row in git_commit_analysis_version(project_path):
