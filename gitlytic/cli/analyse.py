@@ -3,7 +3,7 @@ import sys
 import argparse
 import shutil
 
-from gitlytic.project import get_project_output_dir, get_project_path
+from gitlytic.project import get_project_output_dir, get_project_path, update_project
 from gitlytic.analyser import analyse
 
 if __name__ == '__main__':
@@ -11,7 +11,12 @@ if __name__ == '__main__':
     parser.add_argument('--project', help='Project name to be analysed inside data/ dir')
     parser.add_argument('--clean', action='store_true',
                         help='Forces clean analysis by removing cached analysis')
+    parser.add_argument('--update', action='store_true', help='Fetch latest')
     args = parser.parse_args()
+
+    if args.update:
+        print('Updating project {}'.format(args.project))
+        update_project(args.project)
 
     project_path = get_project_path(args.project)
     if not os.path.exists(project_path):
