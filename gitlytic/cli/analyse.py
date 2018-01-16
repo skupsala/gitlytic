@@ -14,14 +14,14 @@ if __name__ == '__main__':
     parser.add_argument('--update', action='store_true', help='Fetch latest')
     args = parser.parse_args()
 
-    if args.update:
-        print('Updating project {}'.format(args.project))
-        update_project(args.project)
-
     project_path = get_project_path(args.project)
     if not os.path.exists(project_path):
         print('No such project: {}'.format(args.project), file=sys.stderr)
         sys.exit(os.EX_DATAERR)
+
+    if args.update:
+        print('Updating project {}'.format(args.project))
+        update_project(project_path)
 
     output_dir = get_project_output_dir(project_path)
     if args.clean and os.path.exists(output_dir):

@@ -21,8 +21,7 @@ def get_project_output_dir_by_name(project_name):
     return os.path.join(get_project_path(project_name), '.gitlytic')
 
 
-def update_project(project_name):
-    project_path = get_project_path(project_name)
+def update_project(project_path):
     for dirname in os.listdir(project_path):
         repo_path = os.path.join(project_path, dirname)
         if dirname == '.gitlytic':
