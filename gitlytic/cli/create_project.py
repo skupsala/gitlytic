@@ -9,7 +9,7 @@ from gitlytic.utils import cd
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', help='Project name to be created')
-    parser.add_argument('--git-repo-urls', help='List of urls to git repos like: --git-repo-urls url1 url2 url2',
+    parser.add_argument('--git-repo-urls', help='List of urls to git repos like: --git-repo-urls url1 url2 url3',
                         nargs='+', default=[])
     args = parser.parse_args()
 
