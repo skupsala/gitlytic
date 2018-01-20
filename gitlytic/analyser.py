@@ -26,6 +26,7 @@ GIT_LOG_TSV_FIELDS = [
     'insertions',
     'deletions',
     'is_merge',
+    'cumulative_loc',
 ]
 
 
@@ -41,6 +42,26 @@ def git_commit_analysis_version(project_path):
         }
 
 
+def parse_merge_commit_resolution_changes(repo, merge_commit):
+    raw_merge_show_output = repo.git.show(merge_commit.hexsha, '--oneline')
+    first_file_occurred = False
+    insertions = 0
+    deletions = 0
+    for line in raw_merge_show_output.split('\n'):
+        if line.startswith('@@@'):
+            first_file_occurred = True
+            continue
+        if first_file_occurred:
+            if line.startswith('++'):
+                insertions += 1
+            elif line.startswith('--'):
+                deletions += 1
+    return {
+        'insertions': insertions,
+        'deletions': deletions,
+    }
+
+
 def git_commit_analysis(project_path):
     logger.info('Analysing git commits for project {}'.format(get_project_name(project_path)))
     previous_versions = load_previous_analysis_version(project_path)
@@ -49,22 +70,30 @@ def git_commit_analysis(project_path):
         git_repo_name = get_repo_name(git_repo_path)
         logger.info('Analysing git commits for repo {}'.format(git_repo_name))
         repo = git.Repo(git_repo_path)
-        for commit in repo.iter_commits(ANALYSIS_BRANCH):
+        cumulative_loc = 0
+        # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
+        for commit in reversed(list(repo.iter_commits(ANALYSIS_BRANCH))):
             # Stop analysing if previously analysed
             if git_repo_name in previous_versions and previous_versions[git_repo_name] == commit.hexsha:
                 logger.info('Found analysed commit {} - skipping rest commits'.format(commit.hexsha))
                 break
-            is_merge = False
-            changed_file_count = 0
             insertions = 0
             deletions = 0
+            changed_file_count = 0
             if len(commit.parents) > 1:
                 is_merge = True
+                merge_resolution = parse_merge_commit_resolution_changes(repo, commit)
+                insertions = merge_resolution['insertions']
+                deletions = merge_resolution['deletions']
             else:
+                is_merge = False
                 changed_file_count = len(commit.stats.files)
                 for changed_file, change in commit.stats.files.items():
                     insertions += change['insertions']
                     deletions += change['deletions']
+
+            cumulative_loc = cumulative_loc + insertions - deletions
+            # TODO FIXME cumulative loc works only without cumulative analysis (for now requires --clean flag)
             yield {
                 'repo_name': git_repo_name,
                 'commit_hash': commit.hexsha,
@@ -82,6 +111,7 @@ def git_commit_analysis(project_path):
                 'insertions': insertions,
                 'deletions': deletions,
                 'is_merge': is_merge,
+                'cumulative_loc': cumulative_loc,
             }
 
 
