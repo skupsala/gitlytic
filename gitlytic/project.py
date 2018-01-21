@@ -1,3 +1,4 @@
+import json
 import os
 
 from gitlytic import settings
@@ -35,3 +36,18 @@ def update_project(project_path):
                 subprocess.check_call('git fetch', shell=True)
             except subprocess.CalledProcessError:
                 logger.warn('Failed to update repo {}'.format(dirname))
+
+
+def get_project_settings(project_path):
+    project_settings_path = os.path.join(project_path, '.gitlyticrc')
+    if os.path.exists(project_settings_path):
+        logger.info('Found .gitlyticrc -  extracting settings')
+        with open(project_settings_path, 'r') as project_settings_file:
+            try:
+                project_settings = json.load(project_settings_file)
+                return {**settings.PROJECT_DEFAULT_SETTINGS, **project_settings}
+            except:
+                logger.error('Error on reading .gitlyticrc - json file reqiored')
+                return settings.PROJECT_DEFAULT_SETTINGS
+    else:
+        return settings.PROJECT_DEFAULT_SETTINGS

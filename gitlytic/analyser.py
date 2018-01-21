@@ -6,10 +6,8 @@ from dateutil import tz
 from gitlytic import settings
 
 from gitlytic.utils import default_logger as logger
-from gitlytic.project import get_project_output_dir, get_project_name
+from gitlytic.project import get_project_output_dir, get_project_name, get_project_settings
 from gitlytic.repo import find_git_repo_paths, get_repo_name
-
-ANALYSIS_BRANCH = 'origin/master'
 
 GIT_LOG_TSV_FIELDS = [
     'repo_name',
@@ -31,6 +29,7 @@ GIT_LOG_TSV_FIELDS = [
 
 
 def git_commit_analysis_version(project_path):
+    project_settings = get_project_settings(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
     for git_repo_path in git_repo_paths:
         git_repo_name = get_repo_name(git_repo_path)
@@ -38,7 +37,7 @@ def git_commit_analysis_version(project_path):
         repo = git.Repo(git_repo_path)
         yield {
             'repo_name': git_repo_name,
-            'commit_hash': repo.commit(ANALYSIS_BRANCH)
+            'commit_hash': repo.commit(project_settings['analysis_branch'])
         }
 
 
@@ -64,6 +63,7 @@ def parse_merge_commit_resolution_changes(repo, merge_commit):
 
 def git_commit_analysis(project_path):
     logger.info('Analysing git commits for project {}'.format(get_project_name(project_path)))
+    project_settings = get_project_settings(project_path)
     previous_versions = load_previous_analysis_version(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
     for git_repo_path in git_repo_paths:
@@ -72,7 +72,7 @@ def git_commit_analysis(project_path):
         repo = git.Repo(git_repo_path)
         cumulative_loc = 0
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
-        for commit in reversed(list(repo.iter_commits(ANALYSIS_BRANCH))):
+        for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch']))):
             # Stop analysing if previously analysed
             if git_repo_name in previous_versions and previous_versions[git_repo_name] == commit.hexsha:
                 logger.info('Found analysed commit {} - skipping rest commits'.format(commit.hexsha))
