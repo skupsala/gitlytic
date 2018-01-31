@@ -25,6 +25,7 @@ GIT_LOG_TSV_FIELDS = [
     'deletions',
     'is_merge',
     'cumulative_loc',
+    'cumulative_author_count',
 ]
 
 
@@ -70,7 +71,9 @@ def git_commit_analysis(project_path):
         git_repo_name = get_repo_name(git_repo_path)
         logger.info('Analysing git commits for repo {}'.format(git_repo_name))
         repo = git.Repo(git_repo_path)
+        # FIXME Cumulative loc and author_count does not yet work as exceptected for non-linear history
         cumulative_loc = 0
+        cumulative_authors = set()
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
         for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch']))):
             # Stop analysing if previously analysed
@@ -93,6 +96,7 @@ def git_commit_analysis(project_path):
                     deletions += change['deletions']
 
             cumulative_loc = cumulative_loc + insertions - deletions
+            cumulative_authors.add(commit.author.email)
             # TODO FIXME cumulative loc works only without cumulative analysis (for now requires --clean flag)
             yield {
                 'repo_name': git_repo_name,
@@ -112,6 +116,7 @@ def git_commit_analysis(project_path):
                 'deletions': deletions,
                 'is_merge': is_merge,
                 'cumulative_loc': cumulative_loc,
+                'cumulative_author_count': len(cumulative_authors),
             }
 
 
