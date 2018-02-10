@@ -26,6 +26,8 @@ GIT_LOG_TSV_FIELDS = [
     'is_merge',
     'cumulative_loc',
     'cumulative_author_count',
+    # Repo branch count tells branch count "existing" alongside master
+    'repo_branch_count',
 ]
 
 
@@ -74,6 +76,7 @@ def git_commit_analysis(project_path):
         # FIXME Cumulative loc and author_count does not yet work as exceptected for non-linear history
         cumulative_loc = 0
         cumulative_authors = set()
+        repo_active_heads = set()
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
         for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch']))):
             # Stop analysing if previously analysed
@@ -95,9 +98,15 @@ def git_commit_analysis(project_path):
                     insertions += change['insertions']
                     deletions += change['deletions']
 
+            repo_active_heads.add(commit.hexsha)
+            if commit.parents:
+                for parent in commit.parents:
+                    if parent.hexsha in repo_active_heads:
+                        repo_active_heads.remove(parent.hexsha)
+
             cumulative_loc = cumulative_loc + insertions - deletions
             cumulative_authors.add(commit.author.email)
-            # TODO FIXME cumulative loc works only without cumulative analysis (for now requires --clean flag)
+            # TODO FIXME cumulative loc, authors and branch count works only without cumulative analysis (for now requires --clean flag)
             yield {
                 'repo_name': git_repo_name,
                 'commit_hash': commit.hexsha,
@@ -117,6 +126,7 @@ def git_commit_analysis(project_path):
                 'is_merge': is_merge,
                 'cumulative_loc': cumulative_loc,
                 'cumulative_author_count': len(cumulative_authors),
+                'repo_branch_count': len(repo_active_heads),
             }
 
 
