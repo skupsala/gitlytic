@@ -45,7 +45,7 @@ def git_commit_analysis_version(project_path):
 
 
 def parse_merge_commit_resolution_changes(repo, merge_commit):
-    raw_merge_show_output = repo.git.show(merge_commit.hexsha, '--oneline')
+    raw_merge_show_output = repo.git.show(merge_commit.hexsha, '-C', '--oneline')
     first_file_occurred = False
     insertions = 0
     deletions = 0
@@ -78,7 +78,7 @@ def git_commit_analysis(project_path):
         cumulative_authors = set()
         repo_active_heads = set()
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
-        for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch']))):
+        for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch'], topo_order=True))):
             # Stop analysing if previously analysed
             if git_repo_name in previous_versions and previous_versions[git_repo_name] == commit.hexsha:
                 logger.info('Found analysed commit {} - skipping rest commits'.format(commit.hexsha))
