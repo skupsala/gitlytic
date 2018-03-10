@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-from gitlytic.utils import default_logger as logger
+from gitlytic.utils import logger
 from gitlytic.project import get_project_output_dir, get_project_name
 
 

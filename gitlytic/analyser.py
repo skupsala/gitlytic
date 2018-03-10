@@ -5,7 +5,7 @@ from datetime import datetime
 from dateutil import tz
 from gitlytic import settings
 
-from gitlytic.utils import default_logger as logger
+from gitlytic.utils import logger
 from gitlytic.project import get_project_output_dir, get_project_name, get_project_settings
 from gitlytic.repo import find_git_repo_paths, get_repo_name
 

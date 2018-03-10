@@ -2,7 +2,7 @@ import json
 import os
 
 from gitlytic import settings
-from gitlytic.utils import default_logger as logger, cd
+from gitlytic.utils import logger, cd
 import subprocess
 
 

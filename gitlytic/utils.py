@@ -1,9 +1,15 @@
 import os
 import logging
 
+# Default logger is used by third party packages eg. gitpython
 default_logger = logging.getLogger()
-default_logger.setLevel(logging.DEBUG)
+default_logger.setLevel(logging.WARNING)
 default_logger.addHandler(logging.StreamHandler())
+
+logger = logging.getLogger('gitlytic')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
+
 
 class cd:
     """Context manager for changing the current working directory"""
