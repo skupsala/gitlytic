@@ -9,6 +9,9 @@ from gitlytic.analyser import analyse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', help='Project name to be analysed inside data/ dir')
+    parser.add_argument('--repositories',
+                        help='By default analyses all repositories. Give comma separated list of repositories " \
+                        "to analyse only specific repositories. Eg. repo1,repo2,repo3')
     parser.add_argument('--clean', action='store_true',
                         help='Forces clean analysis by removing cached analysis')
     parser.add_argument('--update', action='store_true', help='Fetch latest')
@@ -23,6 +26,11 @@ if __name__ == '__main__':
         print('Updating project {}'.format(args.project))
         update_project(project_path)
 
+    if args.repositories:
+        specific_repositories = args.repositories.split(',')
+    else:
+        specific_repositories = None
+
     output_dir = get_project_output_dir(project_path)
     if args.clean and os.path.exists(output_dir):
         print('Removing cached analysis')
@@ -30,4 +38,4 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    analyse(project_path)
+    analyse(project_path, specific_repositories=specific_repositories)

@@ -31,12 +31,15 @@ GIT_LOG_TSV_FIELDS = [
 ]
 
 
-def git_commit_analysis_version(project_path):
+def git_commit_analysis_version(project_path, specific_repositories=None):
     project_settings = get_project_settings(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
     for git_repo_path in git_repo_paths:
         git_repo_name = get_repo_name(git_repo_path)
-        logger.info('Analysing git commits for repo {}'.format(git_repo_name))
+        if specific_repositories and git_repo_name not in specific_repositories:
+            logger.info('Skipping get analysis version for repo {}'.format(git_repo_name))
+            continue
+        logger.info('Getting analysing version for repo {}'.format(git_repo_name))
         repo = git.Repo(git_repo_path)
         yield {
             'repo_name': git_repo_name,
@@ -64,13 +67,16 @@ def parse_merge_commit_resolution_changes(repo, merge_commit):
     }
 
 
-def git_commit_analysis(project_path):
+def git_commit_analysis(project_path, specific_repositories=None):
     logger.info('Analysing git commits for project {}'.format(get_project_name(project_path)))
     project_settings = get_project_settings(project_path)
     previous_versions = load_previous_analysis_version(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
     for git_repo_path in git_repo_paths:
         git_repo_name = get_repo_name(git_repo_path)
+        if specific_repositories and git_repo_name not in specific_repositories:
+            logger.info('Skipping git commit analysis for repo {}'.format(git_repo_name))
+            continue
         logger.info('Analysing git commits for repo {}'.format(git_repo_name))
         repo = git.Repo(git_repo_path)
         # FIXME Cumulative loc and author_count does not yet work as exceptected for non-linear history
@@ -78,7 +84,8 @@ def git_commit_analysis(project_path):
         cumulative_authors = set()
         repo_active_heads = set()
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
-        for commit in reversed(list(repo.iter_commits(project_settings['analysis_branch'], topo_order=True))):
+        for commit in reversed(
+                list(repo.iter_commits(project_settings['analysis_branch'], topo_order=True))):
             # Stop analysing if previously analysed
             if git_repo_name in previous_versions and previous_versions[git_repo_name] == commit.hexsha:
                 logger.info('Found analysed commit {} - skipping rest commits'.format(commit.hexsha))
@@ -143,7 +150,7 @@ def load_previous_analysis_version(project_path):
     return project_versions
 
 
-def write_git_commit_csv(project_path):
+def write_git_commit_csv(project_path, specific_repositories=None):
     project_name = get_project_name(project_path)
 
     output_file_path = os.path.join(get_project_output_dir(project_path),
@@ -157,7 +164,7 @@ def write_git_commit_csv(project_path):
                                 quoting=csv.QUOTE_NONNUMERIC)
         if should_write_header_row:
             writer.writeheader()
-        for commit_row in git_commit_analysis(project_path):
+        for commit_row in git_commit_analysis(project_path, specific_repositories=specific_repositories):
             writer.writerow(commit_row)
 
     output_version_file_path = os.path.join(get_project_output_dir(project_path),
@@ -167,9 +174,19 @@ def write_git_commit_csv(project_path):
                                 quotechar=settings.QUOTECHAR,
                                 quoting=csv.QUOTE_NONNUMERIC)
         writer.writeheader()
-        for commit_row in git_commit_analysis_version(project_path):
+        for commit_row in git_commit_analysis_version(project_path, specific_repositories=specific_repositories):
             writer.writerow(commit_row)
 
 
-def analyse(project_path):
-    write_git_commit_csv(project_path)
+def analyse(project_path, specific_repositories=None):
+    project_name = get_project_name(project_path)
+    if specific_repositories:
+        logger.info('Starting analysis for project {project} - only for repositories {repositories}'.format(
+                project=project_name,
+                repositories=', '.join(specific_repositories)
+        ))
+    else:
+        logger.info('Starting analysis for project {project} - all repositories'.format(
+                project=project_name
+        ))
+    write_git_commit_csv(project_path, specific_repositories=specific_repositories)
