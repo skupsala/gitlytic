@@ -84,12 +84,19 @@ def git_commit_analysis(project_path, specific_repositories=None):
         cumulative_authors = set()
         repo_active_heads = set()
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
-        for commit in reversed(
-                list(repo.iter_commits(project_settings['analysis_branch'], topo_order=True))):
+        commits = list(reversed(list(repo.iter_commits(project_settings['analysis_branch'], topo_order=True))))
+        for idx, commit in enumerate(commits):
             # Stop analysing if previously analysed
             if git_repo_name in previous_versions and previous_versions[git_repo_name] == commit.hexsha:
                 logger.info('Found analysed commit {} - skipping rest commits'.format(commit.hexsha))
                 break
+            # TODO remove condition and allow progress tracker also with cumulative analysis
+            if git_repo_name not in previous_versions:
+                print('\rAnalysing {percentage}% ( {current} / {total} ) commits'.format(
+                        percentage=int((idx / len(commits)) * 100.0),
+                        current=idx,
+                        total=len(commits)
+                ), end='\r')
             insertions = 0
             deletions = 0
             changed_file_count = 0
