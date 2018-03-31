@@ -165,6 +165,7 @@ def write_git_commit_csv(project_path, specific_repositories=None):
         if should_write_header_row:
             writer.writeheader()
         for commit_row in git_commit_analysis(project_path, specific_repositories=specific_repositories):
+            logger.debug('Analysed commit {}'.format(commit_row))
             writer.writerow(commit_row)
 
     output_version_file_path = os.path.join(get_project_output_dir(project_path),

@@ -8,7 +8,7 @@ default_logger.addHandler(logging.StreamHandler())
 
 logger = logging.getLogger('gitlytic')
 logger.propagate = False
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 

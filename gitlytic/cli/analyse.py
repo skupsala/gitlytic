@@ -2,7 +2,9 @@ import os
 import sys
 import argparse
 import shutil
+import logging
 
+from gitlytic.utils import logger
 from gitlytic.project import get_project_output_dir, get_project_path, update_project
 from gitlytic.analyser import analyse
 
@@ -14,7 +16,8 @@ if __name__ == '__main__':
                         "to analyse only specific repositories. Eg. repo1,repo2,repo3')
     parser.add_argument('--clean', action='store_true',
                         help='Forces clean analysis by removing cached analysis')
-    parser.add_argument('--update', action='store_true', help='Fetch latest')
+    parser.add_argument('--update', action='store_true', help='Pulls latest changes for all repositories')
+    parser.add_argument('--verbose', action='store_true', help='Use verbose output. Useful for inspection / debugging')
     args = parser.parse_args()
 
     project_path = get_project_path(args.project)
@@ -30,6 +33,11 @@ if __name__ == '__main__':
         specific_repositories = args.repositories.split(',')
     else:
         specific_repositories = None
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     output_dir = get_project_output_dir(project_path)
     if args.clean and os.path.exists(output_dir):
