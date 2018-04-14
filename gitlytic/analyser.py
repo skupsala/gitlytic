@@ -73,6 +73,8 @@ def git_commit_analysis(project_path, specific_repositories=None):
     project_settings = get_project_settings(project_path)
     previous_versions = load_previous_analysis_version(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
+
+    analysis_head_commits = []
     for git_repo_path in git_repo_paths:
         git_repo_name = get_repo_name(git_repo_path)
         if specific_repositories and git_repo_name not in specific_repositories:
@@ -81,17 +83,22 @@ def git_commit_analysis(project_path, specific_repositories=None):
         logger.info('Analysing git commits for repo {}'.format(git_repo_name))
         repo = git.Repo(git_repo_path)
         # FIXME Cumulative loc and author_count does not yet work as exceptected for non-linear history
-        cumulative_loc = 0
-        cumulative_authors = set()
-        repo_active_heads = set()
-
-        commit_range = project_settings['analysis_branch']
         if git_repo_name in previous_versions:
-            commit_range = '{from_commit}..{to_commit}'.format(from_commit=previous_versions[git_repo_name]['commit_hash'],
-                                                               to_commit=project_settings['analysis_branch'])
+            commit_range = '{from_commit}..{to_commit}'.format(
+                from_commit=previous_versions[git_repo_name]['commit_hash'],
+                to_commit=project_settings['analysis_branch'])
+            cumulative_loc = previous_versions[git_repo_name]['cumulative_loc']
+            cumulative_authors = set(previous_versions[git_repo_name]['cumulative_authors'])
+            repo_active_heads = set(previous_versions[git_repo_name]['repo_active_heads'])
+        else:
+            commit_range = project_settings['analysis_branch']
+            cumulative_loc = 0
+            cumulative_authors = set()
+            repo_active_heads = set()
 
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
         commits = list(reversed(list(repo.iter_commits(commit_range, topo_order=True))))
+        analysed_commit = None
         for idx, commit in enumerate(commits):
             print('\rAnalysing {percentage}% ( {current} / {total} ) commits'.format(
                     percentage=int((idx / len(commits)) * 100.0),
@@ -121,8 +128,7 @@ def git_commit_analysis(project_path, specific_repositories=None):
 
             cumulative_loc = cumulative_loc + insertions - deletions
             cumulative_authors.add(commit.author.email)
-            # TODO FIXME cumulative loc, authors and branch count works only without cumulative analysis (for now requires --clean flag)
-            yield {
+            analysed_commit = {
                 'repo_name': git_repo_name,
                 'commit_hash': commit.hexsha,
                 'author_name': commit.author.name,
@@ -141,9 +147,26 @@ def git_commit_analysis(project_path, specific_repositories=None):
                 'is_merge': is_merge,
                 'cumulative_loc': cumulative_loc,
                 'cumulative_author_count': len(cumulative_authors),
-                'repo_branch_count': len(repo_active_heads),
-                'is_last_in_analysis': repo.commit(project_settings['analysis_branch']).hexsha == commit.hexsha
+                'repo_branch_count': len(repo_active_heads)
             }
+            yield analysed_commit
+        else:
+            if analysed_commit:
+                analysis_head_commits.append(analysed_commit)
+    else:
+        # In the end we modify our previous versions and update versions file
+        for analysis_head_commit in analysis_head_commits:
+            previous_versions[analysis_head_commit['repo_name']] = {
+                'commit_hash': analysis_head_commit['commit_hash'],
+                'cumulative_loc': cumulative_loc,
+                'cumulative_authors': list(cumulative_authors),
+                'repo_active_heads': list(repo_active_heads)
+            }
+
+        output_version_file_path = os.path.join(get_project_output_dir(project_path),
+                                                'git_commits_version_{}.json'.format(get_project_name(project_path)))
+        with open(output_version_file_path, 'w') as version_file:
+            json.dump(previous_versions, version_file)
 
 
 def load_previous_analysis_version(project_path):
@@ -165,30 +188,15 @@ def write_git_commit_csv(project_path, specific_repositories=None):
     if os.path.exists(output_file_path):
         should_write_header_row = False
 
-    analysis_version_commits = []
     with open(output_file_path, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=GIT_LOG_TSV_FIELDS, delimiter=settings.DELIMITER,
                                 quotechar=settings.QUOTECHAR,
-                                quoting=csv.QUOTE_NONNUMERIC,
-                                extrasaction='ignore')
+                                quoting=csv.QUOTE_NONNUMERIC)
         if should_write_header_row:
             writer.writeheader()
         for commit_row in git_commit_analysis(project_path, specific_repositories=specific_repositories):
             logger.debug('Analysed commit {}'.format(commit_row))
             writer.writerow(commit_row)
-            if commit_row['is_last_in_analysis']:
-                analysis_version_commits.append(commit_row)
-
-    version = load_previous_analysis_version(project_path)
-    for analysis_version_commit in analysis_version_commits:
-        version[analysis_version_commit['repo_name']] = {
-            'commit_hash': analysis_version_commit['commit_hash']
-        }
-
-    output_version_file_path = os.path.join(get_project_output_dir(project_path),
-                                            'git_commits_version_{}.json'.format(project_name))
-    with open(output_version_file_path, 'w') as version_file:
-        json.dump(version, version_file)
 
 
 def analyse(project_path, specific_repositories=None):
