@@ -1,6 +1,7 @@
 import os
 import git
 import csv
+import json
 from datetime import datetime
 from dateutil import tz
 from gitlytic import settings
@@ -86,7 +87,7 @@ def git_commit_analysis(project_path, specific_repositories=None):
 
         commit_range = project_settings['analysis_branch']
         if git_repo_name in previous_versions:
-            commit_range = '{from_commit}..{to_commit}'.format(from_commit=previous_versions[git_repo_name],
+            commit_range = '{from_commit}..{to_commit}'.format(from_commit=previous_versions[git_repo_name]['commit_hash'],
                                                                to_commit=project_settings['analysis_branch'])
 
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
@@ -141,20 +142,18 @@ def git_commit_analysis(project_path, specific_repositories=None):
                 'cumulative_loc': cumulative_loc,
                 'cumulative_author_count': len(cumulative_authors),
                 'repo_branch_count': len(repo_active_heads),
+                'is_last_in_analysis': repo.commit(project_settings['analysis_branch']).hexsha == commit.hexsha
             }
 
 
 def load_previous_analysis_version(project_path):
     project_name = get_project_name(project_path)
     version_file_path = os.path.join(get_project_output_dir(project_path),
-                                     'git_commits_version_{}.csv'.format(project_name))
-    project_versions = {}
+                                     'git_commits_version_{}.json'.format(project_name))
     if os.path.exists(version_file_path):
-        with open(version_file_path, 'r', newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                project_versions[row['repo_name']] = row['commit_hash']
-    return project_versions
+        with open(version_file_path, 'r', newline='') as versions_file:
+            return json.load(versions_file)
+    return {}
 
 
 def write_git_commit_csv(project_path, specific_repositories=None):
@@ -165,25 +164,31 @@ def write_git_commit_csv(project_path, specific_repositories=None):
     should_write_header_row = True
     if os.path.exists(output_file_path):
         should_write_header_row = False
+
+    analysis_version_commits = []
     with open(output_file_path, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=GIT_LOG_TSV_FIELDS, delimiter=settings.DELIMITER,
                                 quotechar=settings.QUOTECHAR,
-                                quoting=csv.QUOTE_NONNUMERIC)
+                                quoting=csv.QUOTE_NONNUMERIC,
+                                extrasaction='ignore')
         if should_write_header_row:
             writer.writeheader()
         for commit_row in git_commit_analysis(project_path, specific_repositories=specific_repositories):
             logger.debug('Analysed commit {}'.format(commit_row))
             writer.writerow(commit_row)
+            if commit_row['is_last_in_analysis']:
+                analysis_version_commits.append(commit_row)
+
+    version = load_previous_analysis_version(project_path)
+    for analysis_version_commit in analysis_version_commits:
+        version[analysis_version_commit['repo_name']] = {
+            'commit_hash': analysis_version_commit['commit_hash']
+        }
 
     output_version_file_path = os.path.join(get_project_output_dir(project_path),
-                                            'git_commits_version_{}.csv'.format(project_name))
-    with open(output_version_file_path, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=['repo_name', 'commit_hash'], delimiter=settings.DELIMITER,
-                                quotechar=settings.QUOTECHAR,
-                                quoting=csv.QUOTE_NONNUMERIC)
-        writer.writeheader()
-        for commit_row in git_commit_analysis_version(project_path, specific_repositories=specific_repositories):
-            writer.writerow(commit_row)
+                                            'git_commits_version_{}.json'.format(project_name))
+    with open(output_version_file_path, 'w') as version_file:
+        json.dump(version, version_file)
 
 
 def analyse(project_path, specific_repositories=None):
