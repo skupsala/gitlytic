@@ -2,9 +2,9 @@ import os
 import git
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil import tz
-from gitlytic import settings
+from gitlytic import settings, snapshot_analysis
 
 from gitlytic.utils import logger
 from gitlytic.project import get_project_output_dir, get_project_name, get_project_settings
@@ -32,22 +32,6 @@ GIT_LOG_TSV_FIELDS = [
 ]
 
 
-def git_commit_analysis_version(project_path, specific_repositories=None):
-    project_settings = get_project_settings(project_path)
-    git_repo_paths = find_git_repo_paths(project_path)
-    for git_repo_path in git_repo_paths:
-        git_repo_name = get_repo_name(git_repo_path)
-        if specific_repositories and git_repo_name not in specific_repositories:
-            logger.info('Skipping get analysis version for repo {}'.format(git_repo_name))
-            continue
-        logger.info('Getting analysing version for repo {}'.format(git_repo_name))
-        repo = git.Repo(git_repo_path)
-        yield {
-            'repo_name': git_repo_name,
-            'commit_hash': repo.commit(project_settings['analysis_branch'])
-        }
-
-
 def parse_merge_commit_resolution_changes(repo, merge_commit):
     raw_merge_show_output = repo.git.show(merge_commit.hexsha, '-C', '--oneline')
     first_file_occurred = False
@@ -71,6 +55,7 @@ def parse_merge_commit_resolution_changes(repo, merge_commit):
 def git_commit_analysis(project_path, specific_repositories=None):
     logger.info('Analysing git commits for project {}'.format(get_project_name(project_path)))
     project_settings = get_project_settings(project_path)
+    snapshot_timedelta = timedelta(**project_settings['snapshot_timedelta'])
     previous_versions = load_previous_analysis_version(project_path)
     git_repo_paths = find_git_repo_paths(project_path)
 
@@ -85,8 +70,8 @@ def git_commit_analysis(project_path, specific_repositories=None):
         # FIXME Cumulative loc and author_count does not yet work as exceptected for non-linear history
         if git_repo_name in previous_versions:
             commit_range = '{from_commit}..{to_commit}'.format(
-                from_commit=previous_versions[git_repo_name]['commit_hash'],
-                to_commit=project_settings['analysis_branch'])
+                    from_commit=previous_versions[git_repo_name]['commit_hash'],
+                    to_commit=project_settings['analysis_branch'])
             cumulative_loc = previous_versions[git_repo_name]['cumulative_loc']
             cumulative_authors = set(previous_versions[git_repo_name]['cumulative_authors'])
             repo_active_heads = set(previous_versions[git_repo_name]['repo_active_heads'])
@@ -99,6 +84,7 @@ def git_commit_analysis(project_path, specific_repositories=None):
         # TODO use better way to iterate in reverse order - now all commits are in memory due to reversed(list(...)) call
         commits = list(reversed(list(repo.iter_commits(commit_range, topo_order=True))))
         analysed_commit = None
+        previous_snapshot_commit = None
         for idx, commit in enumerate(commits):
             print('\rAnalysing {percentage}% ( {current} / {total} ) commits'.format(
                     percentage=int((idx / len(commits)) * 100.0),
@@ -128,17 +114,21 @@ def git_commit_analysis(project_path, specific_repositories=None):
 
             cumulative_loc = cumulative_loc + insertions - deletions
             cumulative_authors.add(commit.author.email)
+
+            author_date = datetime.fromtimestamp(commit.authored_date,
+                                                 tz.tzoffset(None, -commit.author_tz_offset))
+            committer_date = datetime.fromtimestamp(commit.committed_date,
+                                                    tz.tzoffset(None, -commit.committer_tz_offset))
+
             analysed_commit = {
                 'repo_name': git_repo_name,
                 'commit_hash': commit.hexsha,
                 'author_name': commit.author.name,
                 'author_email': commit.author.email,
-                'author_date': datetime.fromtimestamp(commit.authored_date,
-                                                      tz.tzoffset(None, -commit.author_tz_offset)),
+                'author_date': author_date,
                 'committer_name': commit.committer.name,
                 'committer_email': commit.committer.email,
-                'committer_date': datetime.fromtimestamp(commit.committed_date,
-                                                         tz.tzoffset(None, -commit.committer_tz_offset)),
+                'committer_date': committer_date,
                 'subject': commit.summary,
                 'body': commit.message,
                 'changed_file_count': changed_file_count,
@@ -149,6 +139,14 @@ def git_commit_analysis(project_path, specific_repositories=None):
                 'cumulative_author_count': len(cumulative_authors),
                 'repo_branch_count': len(repo_active_heads)
             }
+
+            if previous_snapshot_commit is None \
+                    or previous_snapshot_commit['author_date'] + snapshot_timedelta <= committer_date:
+                previous_snapshot_commit = analysed_commit
+                analysed_commit['_should_snapshot'] = True
+            else:
+                analysed_commit['_should_snapshot'] = False
+
             yield analysed_commit
         else:
             if analysed_commit:
@@ -179,7 +177,7 @@ def load_previous_analysis_version(project_path):
     return {}
 
 
-def write_git_commit_csv(project_path, specific_repositories=None):
+def run_and_save_git_commit_analysis(project_path, specific_repositories=None):
     project_name = get_project_name(project_path)
 
     output_file_path = os.path.join(get_project_output_dir(project_path),
@@ -188,15 +186,22 @@ def write_git_commit_csv(project_path, specific_repositories=None):
     if os.path.exists(output_file_path):
         should_write_header_row = False
 
+    snapshot_commits = []
     with open(output_file_path, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=GIT_LOG_TSV_FIELDS, delimiter=settings.DELIMITER,
                                 quotechar=settings.QUOTECHAR,
                                 quoting=csv.QUOTE_NONNUMERIC)
         if should_write_header_row:
             writer.writeheader()
-        for commit_row in git_commit_analysis(project_path, specific_repositories=specific_repositories):
-            logger.debug('Analysed commit {}'.format(commit_row))
+        for analysed_commit in git_commit_analysis(project_path, specific_repositories=specific_repositories):
+            logger.debug('Analysed commit {}'.format(analysed_commit))
+            if analysed_commit['_should_snapshot']:
+                snapshot_commits.append(analysed_commit)
+            # Filter out private / temporary keys like _should_snapshot
+            commit_row = {key: value for key, value in analysed_commit.items() if not key.startswith('_')}
             writer.writerow(commit_row)
+
+    return snapshot_commits
 
 
 def analyse(project_path, specific_repositories=None):
@@ -210,4 +215,5 @@ def analyse(project_path, specific_repositories=None):
         logger.info('Starting analysis for project {project} - all repositories'.format(
                 project=project_name
         ))
-    write_git_commit_csv(project_path, specific_repositories=specific_repositories)
+    snapshot_commits = run_and_save_git_commit_analysis(project_path, specific_repositories=specific_repositories)
+    snapshot_analysis.analyse_snapshots(snapshot_commits)

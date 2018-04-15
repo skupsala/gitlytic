@@ -6,4 +6,7 @@ QUOTECHAR = '"'
 
 PROJECT_DEFAULT_SETTINGS = {
     'analysis_branch': 'origin/master',
+    'snapshot_timedelta': {
+        'weeks': 1
+    }
 }
