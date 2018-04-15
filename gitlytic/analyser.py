@@ -216,4 +216,4 @@ def analyse(project_path, specific_repositories=None):
                 project=project_name
         ))
     snapshot_commits = run_and_save_git_commit_analysis(project_path, specific_repositories=specific_repositories)
-    snapshot_analysis.analyse_snapshots(snapshot_commits)
+    snapshot_analysis.analyse_snapshots(project_path, snapshot_commits)

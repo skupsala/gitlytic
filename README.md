@@ -20,7 +20,14 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-3. Create project and analyse it
+3. Install cloc for snapshot analysis
+```bash
+# This works on Debian / Ubuntu
+# For other operation systems, see http://cloc.sourceforge.net/
+sudo apt-get install cloc
+```
+
+4. Create project and analyse it
 ```bash
 # Create project with some repos
 python -m gitlytic.cli.create_project --project datascience --git-repo-urls https://github.com/numpy/numpy.git https://github.com/pandas-dev/pandas.git https://github.com/scipy/scipy.git https://github.com/scikit-learn/scikit-learn.git https://github.com/matplotlib/matplotlib.git https://github.com/mwaskom/seaborn.git https://github.com/jupyter/notebook.git
@@ -28,10 +35,10 @@ python -m gitlytic.cli.create_project --project datascience --git-repo-urls http
 python -m gitlytic.cli.analyse --project datascience
 ```
 
-4. Start jupyter notebook
+5. Start jupyter notebook
 ```bash
 jupyter notebook
 ```
 
-5. Open notebook gitlytic -> notebooks -> project-overview.ipynb and run it
+6. Open notebook gitlytic -> notebooks -> project-overview.ipynb and run it
 
