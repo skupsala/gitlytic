@@ -3,6 +3,9 @@ import json
 import os
 import csv
 
+from datetime import datetime
+from dateutil import tz
+
 from gitlytic.project import get_project_output_dir
 from gitlytic.repo import get_repo_path
 from gitlytic.utils import cd
@@ -24,7 +27,7 @@ def analyse_snapshots(project_path, snapshot_commits):
         with cd(repo_path):
             for snapshot_commit in repo_snapshot_commits:
                 subprocess.check_call('git checkout {}'.format(snapshot_commit['commit_hash']), shell=True)
-                snapshot = take_snapshot()
+                snapshot = take_snapshot(snapshot_commit)
                 repo_snapshots[snapshot_commit['commit_hash']] = snapshot
 
         snapshots[repo_name] = repo_snapshots
@@ -32,9 +35,10 @@ def analyse_snapshots(project_path, snapshot_commits):
     save_snapshots(project_path, snapshots)
 
 
-def take_snapshot():
+def take_snapshot(snapshot_commit):
     return {
-        'cloc': cloc_snapshot()
+        'cloc': cloc_snapshot(),
+        'commit': snapshot_commit,
     }
 
 
@@ -53,7 +57,8 @@ def save_snapshots(project_path, snapshots):
         for commit_hash, snapshot in repo_snapshots.items():
             meta_fields = {
                 'repo_name': repo_name,
-                'commit_hash': commit_hash
+                'commit_hash': commit_hash,
+                'author_date': snapshot['commit']['author_date']
             }
             cloc_fields = {lang: (data['blank'] + data['comment'] + data['code'])
                            for lang, data in snapshot['cloc'].items() if lang != 'header'}
